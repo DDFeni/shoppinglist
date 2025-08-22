@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <title>Einkaufsliste Kroatien</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <style>
+    :root {
+      --bg: #f7fafc;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #0ea5e9;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji'; background: var(--bg); color: var(--text); }
+    header {
+      position: sticky; top: 0; z-index: 50; background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 12px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+    header h1 { font-size: 18px; margin: 0; }
+    .controls { display: flex; gap: 8px; flex: 1; align-items: center; flex-wrap: wrap; }
+    input[type='search'] { flex: 1; min-width: 180px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+    button, .chip { border: 1px solid var(--border); background: var(--card); padding: 8px 10px; border-radius: 12px; font-size: 14px; }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    main { padding: 12px; max-width: 900px; margin: 0 auto; }
+    section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 10px; margin-bottom: 12px; }
+    section h2 { margin: 4px 8px 8px; font-size: 16px; color: var(--muted); display:flex; align-items:center; justify-content: space-between; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li.item { display: flex; align-items: center; gap: 10px; padding: 8px 8px; border-radius: 10px; }
+    li.item:hover { background: #f3f4f6; }
+    input[type='checkbox'] { width: 22px; height: 22px; }
+    label { flex: 1; font-size: 16px; }
+    .done label { text-decoration: line-through; color: var(--muted); }
+    .hidden { display: none !important; }
+    .counts { font-size: 12px; color: var(--muted); }
+    .footer { text-align:center; color: var(--muted); font-size: 12px; padding: 20px 0 40px; }
+    .small { font-size: 12px; color: var(--muted); }
+    .cat-actions { display:flex; gap:8px; align-items:center; }
+    .toggle { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🛒 Einkaufsliste</h1>
+    <div class="controls">
+      <input id="search" type="search" placeholder="Suchen/filtern …" aria-label="Suche">
+      <button id="toggleHide" class="chip">Erledigte ausblenden</button>
+      <button id="reset" class="chip">Alle zurücksetzen</button>
+      <button id="export" class="chip">Export</button>
+      <span class="counts" id="counts"></span>
+    </div>
+  </header>
+  <main id="app" aria-live="polite"></main>
+  <div class="footer">Offline nutzbar • Auf den Homescreen hinzufügen für App-Feeling</div>
+
+  <script>
+    // ---- Daten ----
+    const DATA = {
+      "Obst & Gemüse": [
+        "2 Bund Bananen (1 grün, für Dian)",
+        "10 Äpfel (6 für Dian)",
+        "2 kleine Wassermelonen",
+        "1 x Trauben",
+        "14 Orangen (Essen & Drinks, Ella & Dian)",
+        "5 Gurken (Salat & Frühstück)",
+        "3 Paprika",
+        "3 kg Tomaten (Ella, Salat, Pizza, Toast)",
+        "5 Salatköpfe",
+        "2 kg Zwiebeln",
+        "2 Knoblauchknollen (1 Packung)",
+        "1 x Basilikum (Strauch)",
+        "2 kg Kartoffeln (Raclette, Beilage, Pellkartoffeln)"
+      ],
+      "Milchprodukte & Käse": [
+        "12 x Mozzarella (Ella, Salat, Pizza)",
+        "3 Pack geriebener Mozzarella (Pizza)",
+        "3 Pack Raclettekäse",
+        "1 x Gorgonzola",
+        "2 x Bergkäse",
+        "2 x Hartkäse (Frühstück/Wurstsalat)",
+        "2 Pack Parmesan (gerieben)",
+        "1 x Butter",
+        "1 x Flasche Sahne",
+        "6 x Fruchtjoghurt",
+        "1 kg Naturjoghurt (Dian)",
+        "4 x 250 g Griechisches Joghurt oder Sauerrahm (Sauce)",
+        "1 x Fruchtzwerge",
+        "6 x 1 L Haltbarmilch"
+      ],
+      "Brot & Backwaren": [
+        "2 x Schwarzbrot (geschnitten)",
+        "4 Pack Aufbackbrötchen",
+        "3 Pack Toastbrot"
+      ],
+      "Fleisch & Wurst": [
+        "10 Stück Landjäger",
+        "5 Paar Wienerle (10 Stück)",
+        "2 Pack Grillwürstchen",
+        "3 Pack Grillfleisch",
+        "2 Pack Cevapcici",
+        "1 kg Geschnetzeltes",
+        "5 Pack Speck (Frühstück & Tischgrill)",
+        "1 Pack Speckwürfel (Spaghetti)",
+        "5 Pack geschnittene Salami (Frühstück & Tischgrill)",
+        "3 Pack Schinken (Toast)",
+        "3 Pack Scheibenkäse (Toast)",
+        "1 x Lyoner (Wurstsalat)"
+      ],
+      "Nudeln, Reis & Teig": [
+        "2 kg Spaghetti",
+        "1 kg Penne",
+        "1 kg Reis (Beilage)",
+        "5 x Pizzateig",
+        "500 g Hartweizengrieß (Dian)",
+        "500 g Haferflocken (Dian)",
+        "1 Packung Zwieback ohne Zucker (Dian)"
+      ],
+      "Konserven & Eingemachtes": [
+        "2 Gläser Essiggurken",
+        "1 Glas große schwarze Oliven",
+        "1 Glas große grüne Oliven",
+        "1 Glas Kapern (Pizza & Toast)",
+        "4 Dosen Thunfisch (Pizza, Elias)",
+        "2 Dosen Gulaschsuppe",
+        "3 Gläser Ajvar (Sauce)",
+        "4 große Gläser gewürzte Tomatensauce"
+      ],
+      "Gewürze & Basics": [
+        "1 x Salz",
+        "1 x Pfeffer",
+        "1 x Oregano",
+        "1 x Olivenöl",
+        "1 x Essig Aceto",
+        "1 x Weißweinessig"
+      ],
+      "Tiefkühl": [
+        "1 kg Himbeeren (Elias & Ella)",
+        "500 g Beerenmix (Dian)",
+        "2 Pack Eis am Stiel",
+        "1 x Tiefkühlkräuter",
+        "2 Pack Kroketten"
+      ],
+      "Snacks & Süßes": [
+        "5 x Chips",
+        "4 x Würmle",
+        "4 x Soletti",
+        "3 x Kekse",
+        "2 x Fertigkuchen (Marmor, Roulade, …)"
+      ],
+      "Saucen & Sonstiges": [
+        "1 x Kräuterbutter",
+        "1 x Senf",
+        "1 x Ketchup",
+        "1 x Mayo",
+        "1 x Holundersirup"
+      ],
+      "Fertiggerichte": [
+        "3 große Fertiglasagne"
+      ],
+      "Getränke & Heißgetränke": [
+        "9 x 6er 2L Bier (108 L)",
+        "40 x 0,5 L Alkoholfreies Bier (20 L)",
+        "12 x Sanbitter (alkfrei)",
+        "4 x 1 L Tonic (2 für Gin)",
+        "1 x Gin",
+        "1 x Rum",
+        "1 x Vodka (für O-Saft/Gingerbeer)",
+        "1 x Campari",
+        "1 x Aperol",
+        "2 x Bitterol",
+        "18 x Sekt",
+        "8 Flaschen Weißwein",
+        "7 x 1 L Orangensaft (Frühstück + Drinks)",
+        "4 x 1 L Mangosaft (Frühstück + Drinks)",
+        "1 x 6er 2L Cola",
+        "2 x 6er 2L Sprite (Kinder + Radler)",
+        "1 x 6er 2L Mineralwasser",
+        "6 x 6er 2L Stilles Wasser",
+        "6 x 5L Stilles Wasser",
+        "2 x 0,5 kg Kaffee gemahlen"
+      ],
+      "Haushalt": [
+        "1 Pack Klopapier (10 Rollen?)"
+      ]
+    };
+
+    // ---- State & Persistenz ----
+    const STORAGE_KEY = "einkaufsliste-state-v2";
+    let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); // { [id]: true/false }
+    let hideDone = JSON.parse(localStorage.getItem("hide-done") || "false");
+
+    function idFor(text) {
+      // stabile ID aus Text
+      return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem("hide-done", JSON.stringify(hideDone));
+      updateCounts();
+    }
+
+    function updateCounts() {
+      const all = Array.from(document.querySelectorAll('li.item')).length;
+      const done = Array.from(document.querySelectorAll('li.item.done')).length;
+      const counts = document.getElementById('counts');
+      counts.textContent = `${done}/${all} erledigt`;
+    }
+
+    // ---- Rendering ----
+    const app = document.getElementById('app');
+    function render(filter = "") {
+      app.innerHTML = "";
+      const q = filter.trim().toLowerCase();
+
+      Object.entries(DATA).forEach(([cat, items]) => {
+        const section = document.createElement('section');
+        const title = document.createElement('h2');
+        const right = document.createElement('div');
+        right.className = 'cat-actions';
+        const small = document.createElement('span');
+        small.className = 'small';
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'chip toggle';
+        toggleBtn.textContent = 'Alle abhaken';
+        toggleBtn.addEventListener('click', () => {
+          const allChecked = Array.from(section.querySelectorAll('input[type=checkbox]')).every(cb => cb.checked);
+          section.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = !allChecked; cb.dispatchEvent(new Event('change')); });
+        });
+        right.appendChild(toggleBtn);
+        title.textContent = cat;
+        title.appendChild(right);
+        section.appendChild(title);
+
+        const ul = document.createElement('ul');
+
+        items.forEach(text => {
+          const id = idFor(`${cat}-${text}`);
+          if (!(id in state)) state[id] = false;
+
+          if (q && !text.toLowerCase().includes(q) && !cat.toLowerCase().includes(q)) return;
+
+          const li = document.createElement('li'); li.className = 'item';
+          const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = id; cb.checked = !!state[id];
+          const label = document.createElement('label'); label.setAttribute('for', id); label.textContent = text;
+
+          function apply() {
+            li.classList.toggle('done', cb.checked);
+            if (hideDone) li.classList.toggle('hidden', cb.checked);
+          }
+          cb.addEventListener('change', () => { state[id] = cb.checked; save(); apply(); });
+          apply();
+
+          li.appendChild(cb); li.appendChild(label); ul.appendChild(li);
+        });
+
+        const countAll = items.length;
+        const countDone = Object.entries(state).filter(([key,val]) => key.startsWith(idFor(cat)) && val).length;
+        small.textContent = `${countDone}/${countAll}`;
+        title.appendChild(small);
+
+        section.appendChild(ul);
+        if (ul.children.length === 0) return; // skip empty after filter
+        app.appendChild(section);
+      });
+
+      updateCounts();
+    }
+
+    // ---- Controls ----
+    const search = document.getElementById('search');
+    search.addEventListener('input', () => render(search.value));
+
+    const btnHide = document.getElementById('toggleHide');
+    function applyHideState() {
+      btnHide.textContent = hideDone ? 'Erledigte einblenden' : 'Erledigte ausblenden';
+      document.querySelectorAll('li.item').forEach(li => {
+        if (li.classList.contains('done')) li.classList.toggle('hidden', hideDone);
+      });
+    }
+    btnHide.addEventListener('click', () => { hideDone = !hideDone; save(); applyHideState(); });
+
+    document.getElementById('reset').addEventListener('click', () => {
+      if (!confirm('Wirklich alle Häkchen entfernen?')) return;
+      Object.keys(state).forEach(k => state[k] = false);
+      save(); render(search.value);
+    });
+
+    // Export/Import als JSON
+    document.getElementById('export').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'einkaufsliste-status.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    // Initial render
+    render();
+
+    // ---- Service Worker Registrierung ----
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js');
+      });
+    }
+  </script>
+</body>
+</html>
